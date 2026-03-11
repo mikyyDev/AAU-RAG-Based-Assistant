@@ -1,15 +1,16 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState } from "react";
 import API from "../api";
 
-export default function UploadBox() {
+export default function UploadBox({ setDocuments }) {
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [statusType, setStatusType] = useState("neutral");
 
   const handleUpload = async () => {
     if (!file) {
-      setMessage("Please choose a PDF or TXT file first.");
+      setMessage("Please choose a file first.");
+      setStatusType("error");
       return;
     }
 
@@ -18,45 +19,61 @@ export default function UploadBox() {
 
     try {
       setIsUploading(true);
-      setMessage("Indexing document...");
+      setMessage("Uploading and indexing...");
+      setStatusType("neutral");
 
       const res = await API.post("/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       setMessage(
-        `Indexed successfully: ${res.data.file_name} (${res.data.chunks_indexed} chunks)`,
+        `Indexed: ${res.data.file_name} (${res.data.chunks_indexed} chunks)`,
       );
+      setStatusType("success");
+
+      setDocuments((prev) => [
+        ...prev,
+        {
+          file_name: res.data.file_name,
+          chunks_indexed: res.data.chunks_indexed,
+        },
+      ]);
+
       setFile(null);
       const input = document.getElementById("fileInput");
       if (input) input.value = "";
     } catch (err) {
       setMessage(err.response?.data?.detail || "Upload failed.");
+      setStatusType("error");
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="card glass">
-      <div className="section-title">
-        <h2>Upload Documents</h2>
-        <span>PDF / TXT</span>
+    <div className="card panel-animate">
+      <div className="section-row">
+        <div>
+          <h2>Upload Documents</h2>
+          <p className="muted-text">
+            Add PDF or TXT resources to expand the assistant knowledge base.
+          </p>
+        </div>
       </div>
 
-      <p className="muted">
-        Add AAU documents like student handbooks, policies, course guides,
-        library resources, and research guidelines.
-      </p>
-
-      <label className="upload-box">
+      <label className="upload-zone">
         <input
           id="fileInput"
           type="file"
           accept=".pdf,.txt"
           onChange={(e) => setFile(e.target.files[0])}
         />
-        <span>{file ? file.name : "Choose a file"}</span>
+        <span>{file ? file.name : "Click to choose a document"}</span>
+        <small>
+          {file
+            ? `${(file.size / 1024).toFixed(1)} KB`
+            : "Max size depends on backend settings"}
+        </small>
       </label>
 
       <button
@@ -67,7 +84,7 @@ export default function UploadBox() {
         {isUploading ? "Uploading..." : "Upload & Index"}
       </button>
 
-      {message && <div className="status-box">{message}</div>}
+      {message && <div className={`info-box ${statusType}`}>{message}</div>}
     </div>
   );
 }

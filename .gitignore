@@ -1,35 +1,50 @@
+# -----------------------------
 # Python
+# -----------------------------
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 *.sqlite3
+.pytest_cache/
+.mypy_cache/
 
-# Virtual environment
+# Virtual environments
 venv/
 env/
 .venv/
+Backend/venv/
 
-# Environment variables
+# -----------------------------
+# Environment variables / secrets
+# -----------------------------
 .env
+.env.*
+!.env.example
 
+# -----------------------------
+# RAG local data (do not commit)
+# -----------------------------
+Backend/app/data/docs/
+Backend/app/data/chroma_db/
+
+# -----------------------------
 # Logs
+# -----------------------------
 *.log
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Node
+# -----------------------------
+# Node / Vite
+# -----------------------------
 node_modules/
 dist/
 build/
+frontend/.vite/
 
-# VS Code
+# -----------------------------
+# IDE / OS
+# -----------------------------
 .vscode/
-
-# JetBrains
 .idea/
-
-# Mac
 .DS_Store
+Thumbs.db

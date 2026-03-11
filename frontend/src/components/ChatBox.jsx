@@ -1,106 +1,217 @@
 import React from "react";
 import { useState } from "react";
 import API from "../api";
-import SourceList from "./SourceList";
 
-const sampleQuestions = [
+const starterQuestions = [
   "What are the library borrowing rules?",
-  "What does the student handbook say about registration?",
-  "What are the research proposal requirements?",
-  "What policies apply to student conduct?",
+  "How does course registration work?",
+  "What policies are mentioned for student conduct?",
 ];
 
-export default function ChatBox() {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [sources, setSources] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+const BULLET_RE = /^[-*•]\s+/;
+const NUMBERED_RE = /^\d+[.)]\s+/;
 
-  const askQuestion = async () => {
-    if (!question.trim()) return;
+function splitSentences(text) {
+  return text
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function renderAssistantContent(text) {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return <p>{text}</p>;
+
+  if (lines.length === 1) {
+    const sentences = splitSentences(lines[0]);
+    if (sentences.length >= 3) {
+      return (
+        <ul>
+          {sentences.map((sentence, idx) => (
+            <li key={`sentence-${idx}`}>{sentence}</li>
+          ))}
+        </ul>
+      );
+    }
+  }
+
+  const blocks = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    if (BULLET_RE.test(lines[i])) {
+      const items = [];
+      while (i < lines.length && BULLET_RE.test(lines[i])) {
+        items.push(lines[i].replace(BULLET_RE, ""));
+        i += 1;
+      }
+      blocks.push({ type: "ul", items });
+      continue;
+    }
+
+    if (NUMBERED_RE.test(lines[i])) {
+      const items = [];
+      while (i < lines.length && NUMBERED_RE.test(lines[i])) {
+        items.push(lines[i].replace(NUMBERED_RE, ""));
+        i += 1;
+      }
+      blocks.push({ type: "ol", items });
+      continue;
+    }
+
+    if (lines[i].endsWith(":") && lines[i].length <= 80) {
+      blocks.push({ type: "h", text: lines[i] });
+      i += 1;
+      continue;
+    }
+
+    blocks.push({ type: "p", text: lines[i] });
+    i += 1;
+  }
+
+  return (
+    <div className="answer-rich">
+      {blocks.map((block, idx) => {
+        if (block.type === "h") {
+          return (
+            <p className="answer-heading" key={`block-${idx}`}>
+              {block.text}
+            </p>
+          );
+        }
+
+        if (block.type === "ul") {
+          return (
+            <ul key={`block-${idx}`}>
+              {block.items.map((item, itemIdx) => (
+                <li key={`ul-${idx}-${itemIdx}`}>{item}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.type === "ol") {
+          return (
+            <ol key={`block-${idx}`}>
+              {block.items.map((item, itemIdx) => (
+                <li key={`ol-${idx}-${itemIdx}`}>{item}</li>
+              ))}
+            </ol>
+          );
+        }
+
+        return <p key={`block-${idx}`}>{block.text}</p>;
+      })}
+    </div>
+  );
+}
+
+export default function ChatBox() {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const send = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const question = input.trim();
+    const userMsg = { role: "user", text: question };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setError("");
+    setIsLoading(true);
 
     try {
-      setIsLoading(true);
-      setAnswer("");
-      setSources([]);
+      const res = await API.post("/chat", { question });
 
-      const res = await API.post("/chat", { question: question.trim() });
+      const botMsg = {
+        role: "assistant",
+        text: res.data.answer || "No answer was returned.",
+      };
 
-      setAnswer(res.data.answer || "No answer returned.");
-      setSources(res.data.sources || []);
+      setMessages((prev) => [...prev, botMsg]);
     } catch (err) {
-      setAnswer(
-        err.response?.data?.detail || "Something went wrong while asking.",
-      );
-      setSources([]);
+      setError(err.response?.data?.detail || "Failed to fetch answer.");
     } finally {
       setIsLoading(false);
     }
+
+    setInput("");
   };
 
   return (
-    <div className="card glass">
-      <div className="section-title">
-        <h2>Ask the Assistant</h2>
-        <span>Grounded Q&A</span>
+    <div className="card panel-animate chat-card">
+      <div className="section-row">
+        <div>
+          <h2>Ask the Assistant</h2>
+          <p className="muted-text">
+            Answers are generated only from indexed documents.
+          </p>
+        </div>
       </div>
 
-      <p className="muted">
-        Ask questions about the uploaded AAU documents. The assistant should
-        answer only from retrieved content.
-      </p>
-
-      <div className="samples">
-        {sampleQuestions.map((item) => (
+      <div className="chip-row">
+        {starterQuestions.map((question) => (
           <button
-            key={item}
-            className="sample-chip"
-            onClick={() => setQuestion(item)}
+            key={question}
+            className="prompt-chip"
             type="button"
+            onClick={() => setInput(question)}
           >
-            {item}
+            {question}
           </button>
         ))}
       </div>
 
-      <textarea
-        className="chat-input"
-        rows="6"
-        placeholder="Ask something about Addis Ababa University documents..."
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-      />
-
-      <button
-        className="primary-btn"
-        onClick={askQuestion}
-        disabled={isLoading}
-      >
-        {isLoading ? "Thinking..." : "Ask Question"}
-      </button>
-
-      {(answer || isLoading) && (
-        <div className="answer-panel">
-          <div className="answer-header">
-            <h3>Answer</h3>
-            <span>{isLoading ? "Generating..." : "Completed"}</span>
+      <div className="chat-stream">
+        {messages.length === 0 && (
+          <div className="empty-box">
+            Ask a question to start a grounded conversation.
           </div>
-          <div className="answer-content">
-            {isLoading ? (
-              <div className="loader-wrap">
-                <div className="loader"></div>
-                <p>
-                  Retrieving relevant chunks and generating grounded answer...
-                </p>
-              </div>
-            ) : (
-              <p>{answer}</p>
-            )}
-          </div>
-        </div>
-      )}
+        )}
 
-      {!isLoading && sources.length > 0 && <SourceList sources={sources} />}
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            className={`chat-line ${m.role === "user" ? "user" : "assistant"}`}
+          >
+            <div
+              className={`chat-bubble ${m.role === "user" ? "user" : "assistant"}`}
+            >
+              {m.role === "assistant" ? renderAssistantContent(m.text) : m.text}
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="typing-indicator">
+            Retrieving context and generating answer...
+          </div>
+        )}
+      </div>
+
+      {error && <div className="info-box error">{error}</div>}
+
+      <div className="input-row">
+        <input
+          className="chat-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask about AAU handbooks, policies, or guides..."
+          onKeyDown={(e) => {
+            if (e.key === "Enter") send();
+          }}
+        />
+
+        <button onClick={send} className="primary-btn" disabled={isLoading}>
+          Ask
+        </button>
+      </div>
     </div>
   );
 }

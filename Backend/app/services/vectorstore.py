@@ -11,9 +11,11 @@ def add_chunks(chunks_with_meta):
     documents = []
     metadatas = []
     ids = []
+    file_names = set()
 
     for item in chunks_with_meta:
         documents.append(item["text"])
+        file_names.add(item["file_name"])
         metadatas.append({
             "file_name": item["file_name"],
             "page": item["page"] if item["page"] is not None else -1,
@@ -22,6 +24,11 @@ def add_chunks(chunks_with_meta):
         ids.append(item["chunk_id"])
 
     embeddings = embedding_model.encode(documents).tolist()
+
+    # Replace previous chunks for files being re-uploaded so duplicate IDs
+    # do not break indexing.
+    for file_name in file_names:
+        collection.delete(where={"file_name": file_name})
 
     collection.add(
         documents=documents,
@@ -33,22 +40,40 @@ def add_chunks(chunks_with_meta):
 def search_chunks(query: str, top_k: int = 4):
     query_embedding = embedding_model.encode([query]).tolist()[0]
 
+    # Fetch a larger candidate pool, then diversify by file so one large
+    # document does not dominate all retrieved chunks.
+    candidate_count = max(top_k * 5, 20)
     results = collection.query(
         query_embeddings=[query_embedding],
-        n_results=top_k
+        n_results=candidate_count,
+        include=["documents", "metadatas", "distances"]
     )
 
     items = []
     docs = results.get("documents", [[]])[0]
     metas = results.get("metadatas", [[]])[0]
     ids = results.get("ids", [[]])[0]
+    distances = results.get("distances", [[]])[0]
 
-    for doc, meta, chunk_id in zip(docs, metas, ids):
+    max_per_file = 3
+    per_file_counts = {}
+
+    for doc, meta, chunk_id, distance in zip(docs, metas, ids, distances):
+        file_name = meta.get("file_name", "unknown")
+        used = per_file_counts.get(file_name, 0)
+        if used >= max_per_file:
+            continue
+
         items.append({
             "text": doc,
-            "file_name": meta.get("file_name", "unknown"),
+            "file_name": file_name,
             "page": None if meta.get("page", -1) == -1 else meta.get("page"),
-            "chunk_id": chunk_id
+            "chunk_id": chunk_id,
+            "distance": distance,
         })
+        per_file_counts[file_name] = used + 1
+
+        if len(items) >= top_k:
+            break
 
     return items

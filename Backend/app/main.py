@@ -56,7 +56,13 @@ async def upload_file(file: UploadFile = File(...)):
     if not chunks_with_meta:
         raise HTTPException(status_code=400, detail="No readable text found in document.")
 
-    add_chunks(chunks_with_meta)
+    try:
+        add_chunks(chunks_with_meta)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Indexing failed for {filename}: {exc}"
+        ) from exc
 
     return {
         "message": "File indexed successfully",
@@ -71,9 +77,16 @@ def chat(request: ChatRequest):
         return result
     except RuntimeError as exc:
         detail = str(exc)
+        lower_detail = detail.lower()
+        if "decommissioned" in lower_detail or "model_name" in lower_detail:
+            raise HTTPException(status_code=400, detail=detail) from exc
         if "insufficient_quota" in detail or "Error code: 429" in detail:
             raise HTTPException(status_code=429, detail=detail) from exc
+        if "groq quota or rate limit exceeded" in lower_detail:
+            raise HTTPException(status_code=429, detail=detail) from exc
         if "Invalid OPENAI_API_KEY" in detail or "Missing OPENAI_API_KEY" in detail:
+            raise HTTPException(status_code=401, detail=detail) from exc
+        if "invalid groq_api_key" in lower_detail or "missing groq_api_key" in lower_detail:
             raise HTTPException(status_code=401, detail=detail) from exc
         raise HTTPException(status_code=503, detail=detail) from exc
     except Exception as exc:

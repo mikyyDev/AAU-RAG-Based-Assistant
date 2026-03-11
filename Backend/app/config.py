@@ -9,7 +9,8 @@ load_dotenv(os.path.join(PROJECT_DIR, ".env"))
 load_dotenv(os.path.join(BASE_DIR, ".env"), override=True)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "llama-3.3-70b-versatile")
 
 DATA_DIR = os.path.join(BASE_DIR, "data")
 DOCS_DIR = os.path.join(DATA_DIR, "docs")
