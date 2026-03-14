@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+.Python
+.venv/
+venv/
+env/
+
+# Environment files (keep .env.example, ignore actual .env)
+backend/.env
+frontend/.env.local
+
+# ChromaDB vector store (large binary data, regenerated on first run)
+backend/chroma_db/
+
+# Node.js
+node_modules/
+frontend/node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
