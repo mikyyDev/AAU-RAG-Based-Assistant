@@ -12,7 +12,7 @@ This project consists of two parts:
 | Part | Tech | Directory |
 |------|------|-----------|
 | Backend | FastAPI + LangChain + ChromaDB | `backend/` |
-| Frontend | Next.js 14 + Tailwind CSS | `frontend/` |
+| Frontend | Next.js 15 + Tailwind CSS | `frontend/` |
 
 The assistant:
 - Ingests **PDF, TXT, DOCX, and Markdown** documents
@@ -205,7 +205,7 @@ Full interactive docs available at `http://localhost:8000/docs`.
 - **PyPDF** – PDF parsing
 
 ### Frontend
-- **Next.js 14** – React framework (App Router)
+- **Next.js 15** – React framework (App Router)
 - **Tailwind CSS** – Utility-first styling
 - **Lucide React** – Icons
 - **React Markdown** – Markdown rendering in chat
